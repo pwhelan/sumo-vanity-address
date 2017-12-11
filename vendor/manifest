@@ -1,0 +1,23 @@
+{
+	"version": 0,
+	"dependencies": [
+		{
+			"importpath": "github.com/ebfe/keccak",
+			"repository": "https://github.com/ebfe/keccak",
+			"revision": "5cc570678d1bdcb0d75b5121a8742c8c50ecd574",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/ogier/pflag",
+			"repository": "https://github.com/ogier/pflag",
+			"revision": "45c278ab3607870051a2ea9040bb85fcb8557481",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/paxos-bankchain/moneroutil",
+			"repository": "https://github.com/paxos-bankchain/moneroutil",
+			"revision": "33d7e0c11a62d2ac67213781a0b485d0de4aca70",
+			"branch": "master"
+		}
+	]
+}

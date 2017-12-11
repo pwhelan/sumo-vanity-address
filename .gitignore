@@ -1,0 +1,8 @@
+DEADJOE
+*~
+
+/pkg/
+/bin/
+
+/vendor/pkg/
+/vendor/src/
