@@ -54,18 +54,10 @@ func worker(k chan *keyPair, s chan struct{}, vanity string) {
 }
 
 func (w *wallet) Address() string {
-	sbuf := w.SpendKey.Pub.ToBytes()
-	vbuf := w.ViewKey.Pub.ToBytes()
-	var buf []byte
-	buf = append(buf, monero.Uint64ToBytes(0x2bb39a)...)
-	buf = append(buf, sbuf[:]...)
-	buf = append(buf, vbuf[:]...)
-	scratch := append(monero.Uint64ToBytes(0x2bb39a), buf[:]...)
-	csum := monero.GetChecksum(scratch)
-	address := fmt.Sprintf("%s%s",
-		monero.EncodeMoneroBase58(buf[:]),
-		monero.EncodeMoneroBase58(csum[:4]))
-	return address
+	prefix := monero.Uint64ToBytes(0x2bb39a)
+	csum := monero.GetChecksum(prefix, w.SpendKey.Pub[:], w.ViewKey.Pub[:])
+	return monero.EncodeMoneroBase58(prefix, w.SpendKey.Pub[:],
+		w.ViewKey.Pub[:], csum[:4])
 }
 
 func (w *wallet) Print() {
