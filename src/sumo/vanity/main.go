@@ -6,6 +6,7 @@ import (
 	"fmt"
 	flag "github.com/ogier/pflag"
 	monero "github.com/paxos-bankchain/moneroutil"
+	"regexp"
 	"runtime"
 	"time"
 )
@@ -82,6 +83,12 @@ func main() {
 
 	if cores > 0 {
 		runtime.GOMAXPROCS(cores)
+	}
+
+	re := regexp.MustCompile(`^[1-9A-HJ-NP-Za-km-z]+$`).MatchString
+	if re(flag.Arg(0)) == false {
+		fmt.Printf("Slug has illegal characters: %s\n", flag.Arg(0))
+		return
 	}
 
 	fmt.Printf("[*] Threads: %d Cores: %d\n", threads, runtime.GOMAXPROCS(0))
