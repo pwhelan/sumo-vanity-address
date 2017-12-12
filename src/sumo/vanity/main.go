@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/rand"
 	"encoding/hex"
 	"fmt"
 	flag "github.com/ogier/pflag"
@@ -18,20 +19,34 @@ type wallet struct {
 	ViewKey  *keyPair
 }
 
+func (k *keyPair) Regen() {
+	var reduceFrom [monero.KeyLength * 2]byte
+	rand.Read(reduceFrom[:])
+	//copy(reduceFrom[:], tmp)
+	monero.ScReduce(k.Priv, &reduceFrom)
+	k.Pub = k.Priv.PubKey()
+}
+
 func newKeyPair() *keyPair {
 	priv, pub := monero.NewKeyPair()
 	return &keyPair{Priv: priv, Pub: pub}
 }
 
 func worker(c chan *keyPair, vanity string) {
+	var scratch [36]byte
+
+	spend := newKeyPair()
+	header := monero.Uint64ToBytes(0x2bb39a)
+	copy(scratch[:], header)
+
 	for {
-		spend := newKeyPair()
 		pbuf := spend.Pub.ToBytes()
-		scratch := append(monero.Uint64ToBytes(0x2bb39a), pbuf[:]...)
-		slug := monero.EncodeMoneroBase58(scratch)
+		copy(scratch[len(header)-1:], pbuf[:])
+		slug := monero.EncodeMoneroBase58(scratch[:])
 		if slug[6:6+len(vanity)] == vanity {
 			c <- spend
 		}
+		spend.Regen()
 	}
 }
 
