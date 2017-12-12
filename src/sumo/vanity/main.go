@@ -33,22 +33,18 @@ func newKeyPair() *keyPair {
 	return &keyPair{Priv: priv, Pub: pub}
 }
 
-func worker(c chan *keyPair, s chan struct{}, vanity string) {
-	var scratch [36]byte
-
-	spend := newKeyPair()
-	header := monero.Uint64ToBytes(0x2bb39a)
-	copy(scratch[:], header)
+func worker(k chan *keyPair, s chan struct{}, vanity string) {
 	generated := 0
 
 	for {
+		spend := newKeyPair()
 		pbuf := spend.Pub.ToBytes()
-		copy(scratch[len(header)-1:], pbuf[:])
+		scratch := append(monero.Uint64ToBytes(0x2bb39a), pbuf[:]...)
 		slug := monero.EncodeMoneroBase58(scratch[:])
 		if slug[6:6+len(vanity)] == vanity {
-			c <- spend
+			k <- spend
+			return
 		}
-		spend.Regen()
 		generated++
 		if generated >= 100 {
 			s <- struct{}{}
