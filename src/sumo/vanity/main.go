@@ -7,6 +7,7 @@ import (
 	flag "github.com/ogier/pflag"
 	monero "github.com/paxos-bankchain/moneroutil"
 	"runtime"
+	"time"
 )
 
 type keyPair struct {
@@ -32,12 +33,13 @@ func newKeyPair() *keyPair {
 	return &keyPair{Priv: priv, Pub: pub}
 }
 
-func worker(c chan *keyPair, vanity string) {
+func worker(c chan *keyPair, s chan struct{}, vanity string) {
 	var scratch [36]byte
 
 	spend := newKeyPair()
 	header := monero.Uint64ToBytes(0x2bb39a)
 	copy(scratch[:], header)
+	generated := 0
 
 	for {
 		pbuf := spend.Pub.ToBytes()
@@ -47,6 +49,11 @@ func worker(c chan *keyPair, vanity string) {
 			c <- spend
 		}
 		spend.Regen()
+		generated++
+		if generated >= 100 {
+			s <- struct{}{}
+			generated = 0
+		}
 	}
 }
 
@@ -91,12 +98,27 @@ func main() {
 
 	fmt.Printf("[*] Threads: %d Cores: %d\n", threads, runtime.GOMAXPROCS(0))
 	fmt.Printf("[*] Searching for address starting with Sumoo#%s\n", flag.Arg(0))
-	c := make(chan *keyPair)
+
+	s := make(chan struct{})
+	k := make(chan *keyPair)
 	for i := 0; i < threads; i++ {
-		go worker(c, flag.Arg(0))
+		go worker(k, s, flag.Arg(0))
 	}
 
-	w.SpendKey = <-c
-	w.ViewKey = newKeyPair()
-	w.Print()
+	t := time.NewTicker(250 * time.Millisecond)
+	generated := 0.0
+	for {
+		select {
+		case w.SpendKey = <-k:
+			w.ViewKey = newKeyPair()
+			fmt.Printf("\n")
+			w.Print()
+			return
+		case <-s:
+			generated += 100.0
+		case <-t.C:
+			fmt.Printf("\r[*] Speed: %f keys/s", generated*4)
+			generated = 0.0
+		}
+	}
 }
