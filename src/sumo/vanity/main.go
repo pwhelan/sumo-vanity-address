@@ -8,7 +8,6 @@ import (
 	monero "github.com/paxos-bankchain/moneroutil"
 	"regexp"
 	"runtime"
-	"strconv"
 	"time"
 )
 
@@ -37,25 +36,15 @@ func newKeyPair() *keyPair {
 
 func worker(k chan *keyPair, s chan struct{}, numeral int, vanity string) {
 	generated := 0
+	nc := fmt.Sprintf("%d", numeral)
 
 	for {
 		spend := newKeyPair()
 		pbuf := spend.Pub.ToBytes()
 		scratch := append(monero.Uint64ToBytes(0x2bb39a), pbuf[:]...)
 		slug := monero.EncodeMoneroBase58(scratch[:])
-		if numeral != 0 {
-			an := slug[5:5+1]
-			if an != "z" {
-				nn, err := strconv.Atoi(an)
-				if err != nil {
-					panic(err)
-				}
-				if nn != numeral {
-					continue
-				}
-			}
-		}
-		if slug[6:6+len(vanity)] == vanity {
+
+		if slug[6:6+len(vanity)] == vanity && (numeral == 0 || slug[5:5+1] == nc) {
 			k <- spend
 			return
 		}
