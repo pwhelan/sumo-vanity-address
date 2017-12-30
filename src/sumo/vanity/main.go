@@ -112,7 +112,11 @@ func main() {
 	}
 
 	fmt.Printf("[*] Threads: %d Cores: %d\n", threads, runtime.GOMAXPROCS(0))
-	fmt.Printf("[*] Searching for address starting with Sumoo#%s\n", flag.Arg(0))
+	if numeral == 0 {
+		fmt.Printf("[*] Searching for address starting with Sumoo#%s\n", flag.Arg(0))
+	} else {
+		fmt.Printf("[*] Searching for address starting with Sumoo%d%s\n", numeral, flag.Arg(0))
+	}
 
 	s := make(chan struct{})
 	k := make(chan *keyPair)
