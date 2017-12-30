@@ -8,6 +8,7 @@ import (
 	monero "github.com/paxos-bankchain/moneroutil"
 	"regexp"
 	"runtime"
+	"strconv"
 	"time"
 )
 
@@ -34,7 +35,7 @@ func newKeyPair() *keyPair {
 	return &keyPair{Priv: priv, Pub: pub}
 }
 
-func worker(k chan *keyPair, s chan struct{}, vanity string) {
+func worker(k chan *keyPair, s chan struct{}, numeral int, vanity string) {
 	generated := 0
 
 	for {
@@ -42,6 +43,18 @@ func worker(k chan *keyPair, s chan struct{}, vanity string) {
 		pbuf := spend.Pub.ToBytes()
 		scratch := append(monero.Uint64ToBytes(0x2bb39a), pbuf[:]...)
 		slug := monero.EncodeMoneroBase58(scratch[:])
+		if numeral != 0 {
+			an := slug[5:5+1]
+			if an != "z" {
+				nn, err := strconv.Atoi(an)
+				if err != nil {
+					panic(err)
+				}
+				if nn != numeral {
+					continue
+				}
+			}
+		}
 		if slug[6:6+len(vanity)] == vanity {
 			k <- spend
 			return
@@ -74,13 +87,20 @@ func main() {
 	var w wallet
 	var threads int
 	var cores int
+	numeral := 0
 
 	flag.IntVar(&threads, "threads", runtime.GOMAXPROCS(0),
 		"set the number of threads to use")
 	flag.IntVar(&cores, "cores", 0,
 		"set the number of cores the machine has (not usually required)")
+	flag.IntVar(&numeral, "numeral", 0, "set the leading numeral in the address")
 	flag.Parse()
 
+	if numeral >= 7 || numeral < 0 {
+		fmt.Printf("Cannot produce addresses with a leading numeral of %d\n", numeral)
+		return
+	}
+	
 	if cores > 0 {
 		runtime.GOMAXPROCS(cores)
 	}
@@ -97,7 +117,7 @@ func main() {
 	s := make(chan struct{})
 	k := make(chan *keyPair)
 	for i := 0; i < threads; i++ {
-		go worker(k, s, flag.Arg(0))
+		go worker(k, s, numeral, flag.Arg(0))
 	}
 
 	t := time.NewTicker(250 * time.Millisecond)
