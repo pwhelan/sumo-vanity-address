@@ -2,12 +2,15 @@ package main
 
 import (
 	"crypto/rand"
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	flag "github.com/ogier/pflag"
+	"hash/crc32"
 	monero "github.com/paxos-bankchain/moneroutil"
 	"regexp"
 	"runtime"
+	"strings"
 	"time"
 )
 
@@ -63,6 +66,36 @@ func (w *wallet) Address() string {
 		w.ViewKey.Pub[:], csum[:4])
 }
 
+func create_checksum_index(words []string) int {
+	h := crc32.NewIEEE()
+	for _, word := range words {
+		// uniq_prefix EN=3
+		if len(word) > 3 {
+			h.Write([]byte(word[:3])) 
+		} else {
+			h.Write([]byte(word))
+		}
+	}
+	crc := h.Sum(nil)
+	crci := int(binary.BigEndian.Uint32(crc))
+	return crci % 24
+}
+
+func create_checksum_index2(words []string) int {
+	h := crc32.NewIEEE()
+	for _, word := range words {
+		// uniq_prefix EN=3
+		if len(word) > 3 {
+			h.Write([]byte(word[:3])) 
+		} else {
+			h.Write([]byte(word))
+		}
+	}
+	crc := h.Sum(nil)
+	crci := int(binary.BigEndian.Uint32(crc))
+	return crci % len(electrum_words)
+}
+
 func (w *wallet) Print() {
 	spbuf := w.SpendKey.Priv.ToBytes()
 	vpbuf := w.ViewKey.Priv.ToBytes()
@@ -70,6 +103,22 @@ func (w *wallet) Print() {
 	fmt.Printf("[!] SpendKey: %s ViewKey: %s\n",
 		hex.EncodeToString(spbuf[:]),
 		hex.EncodeToString(vpbuf[:]))
+	fmt.Println("Seed: ");
+	b := spbuf[:]
+	var words []string
+	for i := 0; i < len(b); i+=4 {
+		val := int(binary.LittleEndian.Uint32([]byte{b[i], b[i+1], b[i+2], b[i+3]}))
+		w1 := val % len(electrum_words)
+		w2 := ((val / len(electrum_words)) + w1) % len(electrum_words)
+		w3 := (((val / len(electrum_words)) / len(electrum_words)) + w2) % len(electrum_words)
+		
+		words = append(words, electrum_words[w1], electrum_words[w2], electrum_words[w3])
+		
+	}
+	words = append(words, words[create_checksum_index(words)])
+	words = append(words, electrum_words[create_checksum_index2(words)])
+	
+	fmt.Println(strings.Join(words, " "))
 }
 
 func main() {
@@ -118,7 +167,14 @@ func main() {
 	for {
 		select {
 		case w.SpendKey = <-k:
-			w.ViewKey = newKeyPair()
+			
+			// Generate Determenistic View Key
+			w.ViewKey = &keyPair{Priv: &monero.Key{}, Pub: nil} // newKeyPair()
+			sb := w.SpendKey.Priv.ToBytes()
+			w.ViewKey.Priv.FromBytes(monero.Keccak256(sb[:]))
+			monero.ScReduce32(w.ViewKey.Priv)
+			w.ViewKey.Pub = w.ViewKey.Priv.PubKey()
+			
 			fmt.Printf("\n")
 			w.Print()
 			return
